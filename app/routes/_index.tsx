@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import Tesseract from "tesseract.js";
-import { Loader2 } from "lucide-react"; // You can install lucide-react for clean icons
+import { Loader2 } from "lucide-react"; 
 
 export default function Index() {
   const videoRef = useRef<HTMLVideoElement>(null);
