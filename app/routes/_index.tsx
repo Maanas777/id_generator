@@ -10,14 +10,34 @@ export default function Index() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const startCamera = async () => {
-    setIsCapturing(true);
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+ const startCamera = async () => {
+  setIsCapturing(true);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { exact: "environment" } // ✅ Forces back camera
+      }
+    });
+
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
-      videoRef.current.play();
+      await videoRef.current.play();
     }
-  };
+  } catch (err) {
+    console.error("Error accessing back camera, falling back to default:", err);
+
+    // fallback to default camera if back cam not available
+    const fallbackStream = await navigator.mediaDevices.getUserMedia({
+      video: true
+    });
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = fallbackStream;
+      await videoRef.current.play();
+    }
+  }
+};
+
 
   const stopCamera = () => {
     const stream = videoRef.current?.srcObject as MediaStream;
