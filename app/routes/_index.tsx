@@ -1,6 +1,16 @@
 import { useRef, useState } from "react";
 import Tesseract from "tesseract.js";
-import { Loader2 } from "lucide-react"; 
+import {
+  Camera,
+  ImagePlus,
+  Copy,
+  RefreshCcw,
+  Loader2,
+  XCircle,
+  CheckCircle,
+  IdCard,
+} from "lucide-react";
+import { Toaster, toast } from "sonner";
 
 export default function Index() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -14,23 +24,19 @@ export default function Index() {
     try {
       setIsCapturing(true);
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { exact: "environment" } // Force back cam on mobile
-        },
-        audio: false
+        video: { facingMode: { exact: "environment" } },
+        audio: false,
       });
-  
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
     } catch (err) {
-      console.error("Could not access back camera. Make sure permissions are allowed.", err);
-      alert("Back camera access failed. Please allow camera permissions and try again.");
+      console.error("Camera error:", err);
+      alert("Back camera access failed. Please allow camera permissions.");
       setIsCapturing(false);
     }
   };
-  
 
   const stopCamera = () => {
     const stream = videoRef.current?.srcObject as MediaStream;
@@ -41,16 +47,37 @@ export default function Index() {
   const captureAndExtract = async () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    if (canvas && video) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageDataUrl = canvas.toDataURL("image/png");
-        await performOCR(imageDataUrl);
-      }
+    if (!canvas || !video) return;
+
+    const ctx = canvas.getContext("2d");
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+
+    canvas.width = vw;
+    canvas.height = vh;
+
+    // Define your crop box (centered rectangle)
+    const boxWidth = vw * 0.8;
+    const boxHeight = vh * 0.25;
+    const sx = (vw - boxWidth) / 2;
+    const sy = (vh - boxHeight) / 2;
+
+    if (ctx) {
+      ctx.drawImage(
+        video,
+        sx,
+        sy,
+        boxWidth,
+        boxHeight,
+        0,
+        0,
+        boxWidth,
+        boxHeight
+      );
+      const croppedImage = canvas.toDataURL("image/png");
+      await performOCR(croppedImage);
     }
+
     stopCamera();
   };
 
@@ -75,12 +102,13 @@ export default function Index() {
     img.onload = async () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+
       canvas.width = img.width;
       canvas.height = img.height;
 
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.filter = "brightness(100%) contrast(200%) grayscale(200%)";
+        ctx.filter = "brightness(100%) contrast(400%) grayscale(200%)";
         ctx.drawImage(img, 0, 0);
         const filteredImageData = canvas.toDataURL("image/png");
 
@@ -90,10 +118,7 @@ export default function Index() {
           },
         } as any);
 
-        console.log(data,"this is data")
-
         const text = data.text;
-        console.log(text)
         const match = text.match(/\b(?:\d{4}\s?){3}\b/);
         const cleanedId = match ? match[0].replace(/\s/g, "") : "No ID found";
         setIdText(cleanedId);
@@ -103,27 +128,46 @@ export default function Index() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-6 flex flex-col items-center justify-start text-white font-sans">
-      <h1 className="text-4xl font-bold text-center text-white mb-8 tracking-wide drop-shadow-lg">
-        📷 Scan Your ID Card
-      </h1>
-  
+    <div
+      className={`min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-6 flex flex-col items-center ${
+        !isCapturing && !idText ? "justify-center" : "justify-start"
+      } text-white font-sans`}
+    >
+      <Toaster
+        position="bottom-center"
+        toastOptions={{
+          style: {
+            marginBottom: "2rem",
+            fontSize: "0.95rem",
+            padding: "0.75rem 1rem",
+            borderRadius: "0.5rem",
+          },
+        }}
+      />
+
+      <div className="w-full max-w-md bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 shadow-lg px-6 py-4 mb-8 flex items-center gap-3">
+        <IdCard size={24} className="text-indigo-400" />
+        <h1 className="text-xl md:text-2xl font-semibold text-white tracking-wide">
+          Scan Your ID Card
+        </h1>
+      </div>
+
       {!isCapturing && !idText && (
-        <div className="w-full max-w-md flex flex-col gap-5">
+        <div className="w-full max-w-md bg-white/5 backdrop-blur-lg p-6 rounded-xl border border-white/10 shadow-lg flex flex-col gap-3 items-center justify-center">
           <button
             onClick={startCamera}
-            className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white py-3 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-200 hover:scale-105"
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white h-14 w-full rounded-xl font-medium text-base shadow-md transition-transform hover:scale-105"
           >
-            📷 Use Camera
+            <Camera size={20} /> Use Camera
           </button>
-  
+
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-700 hover:to-pink-700 text-white py-3 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-200 hover:scale-105"
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-700 hover:to-pink-700 text-white h-14 w-full rounded-xl font-medium text-base shadow-md transition-transform hover:scale-105"
           >
-            📁 Upload from Gallery
+            <ImagePlus size={20} /> Upload from Gallery
           </button>
-  
+
           <input
             type="file"
             accept="image/*"
@@ -133,54 +177,84 @@ export default function Index() {
           />
         </div>
       )}
+
+{isCapturing && (
+  <div className="w-full max-w-md flex flex-col items-center gap-6 mt-6 p-4  rounded-2xl shadow-xl border border-zinc-700">
+    
+   
+    <div className="relative w-full rounded-2xl overflow-hidden">
+      <video
+        ref={videoRef}
+        className="w-full max-h-[400px] object-cover rounded-2xl border border-zinc-700"
+      />
+      
   
-      {isCapturing && (
-        <div className="w-full max-w-md flex flex-col items-center gap-4 mt-6">
-          <video
-            ref={videoRef}
-            className="rounded-3xl border border-gray-700 shadow-lg w-full max-h-[400px] object-cover"
-          />
-          <button
-            onClick={captureAndExtract}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-200 hover:scale-105"
-          >
-            ✅ Capture & Extract
-          </button>
-          <button
-            onClick={stopCamera}
-            className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-200 hover:scale-105"
-          >
-            ❌ Cancel
-          </button>
-        </div>
-      )}
-  
+      <div className="absolute inset-0 pointer-events-none">
+      
+        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-white rounded-tl-xl" />
+      
+        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-white rounded-tr-xl" />
+        
+        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-white rounded-bl-xl" />
+       
+        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-white rounded-br-xl" />
+      </div>
+    </div>
+
+    {/* Action Buttons */}
+    <div className="w-full flex flex-col gap-3">
+      <button
+        onClick={captureAndExtract}
+        className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105 shadow"
+      >
+        <CheckCircle size={18} /> Capture & Extract
+      </button>
+
+      <button
+        onClick={stopCamera}
+        className="w-full flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-medium transition-all duration-200 hover:scale-105 shadow"
+      >
+        <XCircle size={18} /> Cancel
+      </button>
+    </div>
+  </div>
+)}
+
+
       <canvas ref={canvasRef} className="hidden" />
-  
+
       {loading && (
-        <div className="mt-8 flex items-center gap-2 text-lg font-medium text-gray-300 animate-pulse">
-          <Loader2 className="animate-spin" />
-          Extracting ID number...
+        <div className="mt-8 flex items-center gap-2 text-base font-medium text-gray-400 animate-pulse">
+          <Loader2 className="animate-spin" /> Extracting ID number...
         </div>
       )}
-  
+
       {!loading && idText && (
-        <div className="mt-10 w-full max-w-md bg-white/5 backdrop-blur-lg p-6 rounded-3xl border border-white/20 shadow-xl flex flex-col items-center gap-4 transition-all duration-200">
-          <h2 className="text-xl font-semibold text-white">🆔 Extracted ID</h2>
-          <p className="text-2xl font-mono text-lime-400 break-words">{idText}</p>
-  
+        <div className="mt-10 w-full max-w-md bg-white/5 backdrop-blur-lg p-6 rounded-xl border border-white/10 shadow-lg flex flex-col items-center gap-4 transition-all">
+          <h2 className="text-lg font-semibold text-white">Extracted ID</h2>
+          <div className="flex items-center gap-2">
+            <p className="text-xl font-mono text-lime-400 break-words">
+              {idText}
+            </p>
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(idText);
+                toast.success("ID copied to clipboard!");
+              }}
+              className="text-white bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-md text-sm transition"
+            >
+              <Copy size={16} />
+            </button>
+          </div>
+
           <button
-            onClick={() => {
-              setIdText("");
-            }}
-            className="mt-4 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white px-5 py-3 rounded-2xl font-semibold text-lg shadow-md transition-all hover:scale-105"
+            onClick={() => setIdText("")}
+            className="flex items-center gap-2 mt-4 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl font-medium text-base shadow transition hover:scale-105"
           >
-            🔄 Scan Another ID
+            <RefreshCcw size={18} /> Scan Another ID
           </button>
         </div>
       )}
     </div>
   );
-  
-  
 }
