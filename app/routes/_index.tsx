@@ -23,10 +23,22 @@ export default function Index() {
   const startCamera = async () => {
     try {
       setIsCapturing(true);
+  
+      // Custom video constraints
+      const videoConstraints: any = {
+        facingMode: { exact: "environment" },
+        advanced: [
+          {
+            focusMode: "continuous", // Will work if supported by browser + device
+          },
+        ],
+      };
+  
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { exact: "environment" } },
+        video: videoConstraints,
         audio: false,
       });
+  
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -37,6 +49,8 @@ export default function Index() {
       setIsCapturing(false);
     }
   };
+  
+  
 
   const stopCamera = () => {
     const stream = videoRef.current?.srcObject as MediaStream;
