@@ -18,19 +18,39 @@ export default function Home() {
 
   const { idText, loading, performOCR, setIdText } = useOCR(canvasRef);
 
-  const startCamera = async () => {
+const startCamera = async () => {
+  try {
+    setIsCapturing(true);
+    const constraints = {
+      video: {
+        facingMode: { exact: "environment" } // back camera
+      },
+      audio: false
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+    }
+  } catch (err) {
+    console.error("Camera error:", err);
+    toast.error("Unable to access the back camera. Using default camera instead.");
+
+    // fallback to any camera
     try {
-      setIsCapturing(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = fallbackStream;
         videoRef.current.play();
       }
-    } catch (err) {
-      console.error("Camera error:", err);
-      toast.error("Unable to access the camera.");
+    } catch (fallbackErr) {
+      console.error("Fallback camera error:", fallbackErr);
+      toast.error("Unable to access any camera.");
     }
-  };
+
+    setIsCapturing(false);
+  }
+};
 
   const stopCamera = () => {
     const stream = videoRef.current?.srcObject as MediaStream;
