@@ -1,9 +1,6 @@
-import { useRef,useState } from "react";
+import { useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
-import {
-  IdCard,
-  Loader2,
-} from "lucide-react";
+import { IdCard, Loader2 } from "lucide-react";
 import CameraView from "../components/CameraView";
 import UploadButtons from "../components/UploadOptions";
 import ExtractedResult from "../components/ExtractedResult";
@@ -15,42 +12,50 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [isCapturing, setIsCapturing] = useState(false);
-
   const { idText, loading, performOCR, setIdText } = useOCR(canvasRef);
 
-const startCamera = async () => {
-  try {
-    setIsCapturing(true);
-    const constraints = {
-      video: {
-        facingMode: { exact: "environment" } // back camera
-      },
-      audio: false
-    };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.play();
-    }
-  } catch (err) {
-    console.error("Camera error:", err);
-    toast.error("Unable to access the back camera. Using default camera instead.");
-
-    // fallback to any camera
+  const startCamera = async () => {
     try {
-      const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = fallbackStream;
-        videoRef.current.play();
-      }
-    } catch (fallbackErr) {
-      console.error("Fallback camera error:", fallbackErr);
-      toast.error("Unable to access any camera.");
-    }
+      setIsCapturing(true);
 
-    setIsCapturing(false);
-  }
-};
+      const constraints = {
+        video: {
+          facingMode: { exact: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          focusMode: "continuous"
+        },
+        audio: false
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      // Log camera capabilities (optional)
+      const track = stream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities?.();
+      console.log("Camera capabilities:", capabilities);
+    } catch (err) {
+      console.error("Camera error:", err);
+      toast.error("Unable to access the back camera. Trying fallback...");
+
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = fallbackStream;
+          await videoRef.current.play();
+        }
+      } catch (fallbackErr) {
+        console.error("Fallback camera error:", fallbackErr);
+        toast.error("Unable to access any camera.");
+      }
+
+      setIsCapturing(false);
+    }
+  };
 
   const stopCamera = () => {
     const stream = videoRef.current?.srcObject as MediaStream;
